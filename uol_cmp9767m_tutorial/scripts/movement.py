@@ -7,45 +7,41 @@ import math
 
 class MoveRobot:
     def __init__(self):
-        self.path = Path()
-        goal = Point()
-
-        self.subscriber = rospy.Subscriber("/free_space_center_point", PointStamped, self.determine_robot_movement)
-        self.odom = rospy.Subscriber("/thorvald_001/odometry/gazebo", Odometry, self.robot_odometry)
-        self.cmd = rospy.Publisher("/thorvald_001/teleop_joy/cmd_vel", Twist, queue_size=10)
-        self.path_pub = rospy.Publisher('/patho', Path, queue_size =10)
+        self.free_space_center_point = rospy.Subscriber("/free_space_center_point", PointStamped, self.determine_robot_movement)
+        self.robot_odom = rospy.Subscriber("/thorvald_001/odometry/gazebo", Odometry, self.robot_odometry)
+        self.robot_path = rospy.Publisher('/robot_path', Path, queue_size =10)
+        self.command_velocity = rospy.Publisher("/thorvald_001/teleop_joy/cmd_vel", Twist, queue_size=10)
         self.rate = rospy.Rate(10)
 
-
-    def robot_odometry(self, msg):
-        self.path.header = msg.header
-       
-        pose = PoseStamped()
-        pose.header = msg.header
-        pose.pose = msg.pose.pose
-        self.path.poses.append(pose)
-        self.path_pub.publish(self.path)
-
+        self.path_taken_by_robot = Path()
 
     def determine_robot_movement(self, data):
-        goal = data.point
-        angle_to_goal = math.atan2(goal.y, goal.x)
+        angle_to_goal = math.atan2(data.point.y, data.point.x)
 
-        speed = Twist()
-
-        if (angle_to_goal > -0.05 and goal.y > -0.601):
-            print('turn left')
-            speed.linear.x = 0.8
-            speed.angular.z = 0.1
-        elif (angle_to_goal < -0.05  and goal.y < -0.3):
-            print('turn right')
-            speed.linear.x = 0.8
-            speed.angular.z = -0.1
+        move_robot = Twist()
+        if (angle_to_goal > -0.05 and data.point.y > -0.601):
+            move_robot.angular.z = 0.1
+            move_robot.linear.x = 0.5
+            print('robot is turning left')
+        elif (angle_to_goal < -0.05  and data.point.y < -0.3):
+            move_robot.angular.z = -0.1
+            move_robot.linear.x = 0.5
+            print('robot is turning right')
         else :
-            print('move')
-            speed.linear.x = 0.8
-            speed.angular.z = 0.0
-        self.cmd.publish(speed)
+            move_robot.angular.z = 0.0
+            move_robot.linear.x = 0.5
+            print('move forward')
+
+        self.command_velocity.publish(move_robot)
+
+    def robot_odometry(self, data):
+        poseStamped = PoseStamped()
+        poseStamped.pose = data.pose.pose
+        poseStamped.header = data.header
+        self.path_taken_by_robot.poses.append(poseStamped)
+        self.path_taken_by_robot.header = data.header
+
+        self.robot_path.publish(self.path_taken_by_robot)
 
 if __name__ == '__main__':
     rospy.init_node('move_robot', anonymous=True)
