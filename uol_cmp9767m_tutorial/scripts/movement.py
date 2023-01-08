@@ -9,8 +9,8 @@ class MoveRobot:
     def __init__(self):
         self.free_space_center_point = rospy.Subscriber("/free_space_center_point", PointStamped, self.determine_robot_movement)
         self.robot_odom = rospy.Subscriber("/thorvald_001/odometry/gazebo", Odometry, self.robot_odometry)
-        self.robot_path = rospy.Publisher('/robot_path', Path, queue_size =10)
-        self.command_velocity = rospy.Publisher("/thorvald_001/teleop_joy/cmd_vel", Twist, queue_size=10)
+        self.robot_path = rospy.Publisher('/robot_path', Path, queue_size =1)
+        self.command_velocity = rospy.Publisher("/thorvald_001/teleop_joy/cmd_vel", Twist, queue_size=1)
         self.rate = rospy.Rate(10)
 
         self.path_taken_by_robot = Path()
@@ -20,11 +20,11 @@ class MoveRobot:
 
         move_robot = Twist()
         if (angle_to_goal > -0.05 and data.point.y > -0.601):
-            move_robot.angular.z = 0.1
+            move_robot.angular.z = 0.12
             move_robot.linear.x = 0.5
             print('robot is turning left')
         elif (angle_to_goal < -0.05  and data.point.y < -0.3):
-            move_robot.angular.z = -0.1
+            move_robot.angular.z = -0.12
             move_robot.linear.x = 0.5
             print('robot is turning right')
         else :
@@ -32,8 +32,10 @@ class MoveRobot:
             move_robot.linear.x = 0.5
             print('move forward')
 
+        # publish a command to move the robot in the desired direction
         self.command_velocity.publish(move_robot)
 
+    # this is not to move the robot. It is added to draw the path travelled by the robot.
     def robot_odometry(self, data):
         poseStamped = PoseStamped()
         poseStamped.pose = data.pose.pose

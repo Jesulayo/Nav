@@ -9,14 +9,12 @@ from rospy import Time
 
 class ScanEnvironment:
     def __init__(self):
-        self.subscriber = rospy.Subscriber("/thorvald_001/front_scan", LaserScan, self.scan_for_obstacle)
+        self.laser_scan_subscriber = rospy.Subscriber("/thorvald_001/front_scan", LaserScan, self.scan_for_obstacle)
         self.free_space_center_point = rospy.Publisher("/free_space_center_point", PointStamped, queue_size=1)
-        self.filtered_scan = rospy.Publisher("/thorvald_001/filtered_front_scan", LaserScan, queue_size=10)
+        self.filtered_scan = rospy.Publisher("/thorvald_001/filtered_front_scan", LaserScan, queue_size=1)
         self.rate = rospy.Rate(10)
 
     def scan_for_obstacle(self, data):
-        print('checking for obstacle')
-
         roi_range = []
         filtered_range = []
         left_axis = []
@@ -45,31 +43,16 @@ class ScanEnvironment:
 
             #if the x axis is within 3m, append the range into roi_range array else append 0
             # and also divide the laser points into 2 (LHS and RHS)
-            if( x >= 0 and x < 3):
+            if(x>=0 and x<3):
                 roi_range.append(j)
-                # if(y < 0 ):
-                #     right_axis.append(y)
-                # else:
-                #     left_axis.append(y)
+                if(y<0):
+                    right_axis.append(y)
+                else:
+                    left_axis.append(y)
             else:
                 roi_range.append(0)
         
-        # get ranges with 3m of the robot in the y direction
-        for i, j in enumerate(roi_range):
-            z = data.angle_min + i*data.angle_increment
-            x = j*math.cos(z)
-            y = j*math.sin(z)
-
-            if( y >= -3 and y < 3 ):
-                filtered_range.append(j)
-                if( y >= -3 and y < 0 ):
-                    right_axis.append(y)
-                if( y >= 0 and y < 3 ):
-                    left_axis.append(y)
-            else:
-                filtered_range.append(0)
-
-        new_scan.ranges = filtered_range
+        new_scan.ranges = roi_range
 
         #determine the closest laser point on the RHS of the robot
         right_axis = [a for a in right_axis if a != 0]
@@ -85,12 +68,12 @@ class ScanEnvironment:
         free_space = (right_point + left_point)/2
 
         point = Point()
-        point.x = 3
         point.y = free_space
+        point.x = 3
 
         #setup a transform listener to convert data from LiDAR frame to robot frame (base link)
         tf_listener = tf.TransformListener()
-        tf_listener.waitForTransform("thorvald_001/base_link", "thorvald_001/hokuyo_front", rospy.Time(), rospy.Duration(3.0))
+        tf_listener.waitForTransform("thorvald_001/base_link", "thorvald_001/hokuyo_front", rospy.Time(), rospy.Duration(2.0))
 
         free_space_point = PointStamped()
         free_space_point.header.frame_id = "thorvald_001/hokuyo_front"
